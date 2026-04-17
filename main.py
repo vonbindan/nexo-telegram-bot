@@ -10,21 +10,35 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "-5005918558")
 def send_telegram(text):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     data = {"chat_id": TELEGRAM_CHAT_ID, "text": text}
-    requests.post(url, data=data)
+    try:
+        requests.post(url, data=data)
+    except Exception as e:
+        print(f"Telegram error: {e}")
 
-@app.route("/webhook", methods=["POST"])
+@app.route("/webhook", methods=["POST", "GET"])
 def webhook():
     try:
-        data = request.get_json(force=True)
-        if data and "text" in data:
+        data = request.get_json(force=True, silent=True)
+        if data and isinstance(data, dict) and "text" in data:
             send_telegram(data["text"])
-        else:
-            body = request.data.decode("utf-8")
-            if body:
-                send_telegram(body)
+            return "OK", 200
+
+        body = request.data.decode("utf-8").strip()
+        if body:
+            send_telegram(body)
+            return "OK", 200
+
+        form_text = request.form.get("text", "")
+        if form_text:
+            send_telegram(form_text)
+            return "OK", 200
+
+        send_telegram("Сигнал получен")
+        return "OK", 200
+
     except Exception as e:
-        send_telegram(f"Ошибка: {str(e)}")
-    return "OK", 200
+        print(f"Error: {e}")
+        return "OK", 200
 
 @app.route("/", methods=["GET"])
 def home():
